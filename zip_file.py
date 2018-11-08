@@ -4,7 +4,7 @@ import os
 import process_bar
 import platform
 
-batch_size = "20K"
+batch_size = "200K"
 zip_dir = "zips"
 
 # 创建zips文件夹；
@@ -55,8 +55,18 @@ def get_origin_size(file_dir):
     return file_size
 
 
+# 获取文件月份，将添加到压缩文件名；
+def get_month(basename):
+    # todo 解析文件日期；
+    return basename[:6]
+
+
+def get_database(basename):
+    return basename[6:]
+
+
 # 分块创建压缩文件，返回压缩的小文件列表；
-def create_zip(file_dir, database_name):
+def create_zip(file_dir):
     # 转换为绝对路径，防止重复；
     file_dir = os.path.abspath(file_dir)
     # 创建二级目录
@@ -71,12 +81,15 @@ def create_zip(file_dir, database_name):
 
     zip_index = 0
 
+    basename = os.path.basename(file_dir)
+
     for index, file in enumerate(file_list):
+        # print(file)
         # 显示压缩进度；
         process_bar.process_bar(float(index) / len(file_list))
         # 判断是否已定义part_zip对象；
         if index == 0:
-            part_zip = zipfile.ZipFile(os.path.join(zip_file_dir, database_name +
+            part_zip = zipfile.ZipFile(os.path.join(zip_file_dir, basename +
                                                     str(zip_index)+'.zip'),
                                        'w', zipfile.ZIP_DEFLATED)
 
@@ -94,11 +107,10 @@ def create_zip(file_dir, database_name):
             if index + 1 != len(file_list):
                 zip_index += 1
                 part_zip = zipfile.ZipFile(
-                    os.path.join(zip_file_dir, database_name + str(zip_index)+'.zip'),
+                    os.path.join(zip_file_dir, basename + str(zip_index)+'.zip'),
                     'w', zipfile.ZIP_DEFLATED)
 
     process_bar.process_bar(1)
-    print(name_list)
 
     return name_list
 

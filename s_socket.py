@@ -71,7 +71,7 @@ def sending_file(file_dir, host_index):
     print(file_dir)
     for file in os.listdir(file_dir):
         file = os.path.join(file_dir, file)
-        print(file)
+        # print(file)
         sending_process(file, host_index)
 
     # 传输完成；

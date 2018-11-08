@@ -9,6 +9,7 @@ from logs import make_log
 
 if __name__ == '__main__':
     file_dir = sys.argv[1]
+    file_dir = os.path.abspath(file_dir)
 
     make_log("WARNING", "清除数据记录" + file_dir)
 
