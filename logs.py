@@ -17,7 +17,7 @@ def locate_log():
 
 
 # 记录日志文件；
-def make_log(type = None, log_str = None):
+def make_log(type=None, log_str=None):
     # 录入空行;
     if not type and not log_str:
         with open(locate_log(), 'a') as writer:

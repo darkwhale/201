@@ -1,173 +1,81 @@
-# -*- coding: UTF-8 -*-
-import sys
-import zip_file
-import mask
-import ask_computer
+import socket
+import time
+import struct
+import os
+
 from ask_computer import host_list
 from logs import make_log
-
-# m_socket为多线程，s_socket为单线程；需要测试在实际环境中使用多线程是否会加速；
-# from m_socket import sending_file
-from s_socket import sending_file
-
-
-# 传输文件；
-def transport(file_dir):
-    # 记录日志文件
-    make_log("INFO", "running" + file_dir + " ")
-
-    # src_size为未压缩之前的文件夹大小；
-    src_size = zip_file.get_origin_size(file_dir)
-    symbol = mask.get_mask(file_dir)
-
-    if src_size == 0:
-        print("文件夹为空")
-        make_log()
-        exit(1)
-
-    # noinspection PyBroadException
-    try:
-
-        # 未处理；则需要完成压缩-传输的工作；
-        if symbol == 0:
-            # 第一步，请求获得最适合的主机ip地址；
-            make_log("INFO", "请求主机------------")
-            best_server = ask_computer.get_best_server(src_size)
-
-            if best_server is None:
-                print("no available server can be found!")
-                make_log("ERROR", "未找到合适的主机")
-                make_log()
-                exit(1)
-
-            make_log("INFO", "将向%s发送数据" % host_list[best_server])
-            print("将向 %s 传输数据----------" % host_list[best_server])
-
-            # 获得即将得到的压缩文件；
-            print("压缩文件------------------------------")
-            make_log("INFO", "压缩文件".ljust(20, '-'))
-
-            file_list = zip_file.create_zip(file_dir)
-            print("压缩完成------------------------------")
-            make_log("INFO", "压缩完成".ljust(20, '-'))
-
-            # 压缩完毕则将标志位设置为目标主机的索引，有3种值；表示压缩完成，可以进行后续工作；
-            mask.put_mask(file_dir, best_server)
-
-            # 传输文件；
-            make_log("INFO", "准备发送文件---------")
-            sending_file(file_dir, best_server)
-
-            make_log("INFO", "文件传输完毕---------")
-            mask.put_mask(file_dir, 3)
-
-            make_log()
-            exit()
-
-        # 压缩完成，则直接进行传输即可；
-        if symbol in ["0", "1", "2"]:
-            print("压缩已完成，准备传输文件".ljust(20, '-'))
-            make_log("INFO", "压缩已完成，将向%s发送数据" % host_list[int(symbol)])
-
-            print("将向 %s 传输数据----------" % host_list[int(symbol)])
-            sending_file(file_dir, int(symbol))
-
-            mask.put_mask(file_dir, 3)
-            make_log("INFO", "数据传输完毕".ljust(20, '-'))
-            make_log()
-            exit()
-
-        # 所有工作完成，则提示并返回；
-        if symbol == "3":
-            print('all work are finished, '
-                  'you may want to try "python clear.py folder" '
-                  'to clear all the masks')
-            make_log("WARNING", "该数据已处理过！".ljust(20, '-'))
-            exit()
-
-    except Exception:
-        pass
+from ask_computer import port
+from process_bar import process_bar
+from zip_file import get_file_list
+from zip_file import zip_dir
+from zip_file import get_system_bytes
 
 
-if __name__ == '__main__':
-    # 待传输的文件夹；
-    file_dir = sys.argv[1]
+def sending_process(file_name, host_index):
+    # 建立连接；
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # 绑定服务器IP地址；
+    host = host_list[host_index]
 
-    # 记录日志文件
-    make_log("INFO", "running" + file_dir + " ")
+    sock.connect((host, port))
 
-    # src_size为未压缩之前的文件夹大小；
-    src_size = zip_file.get_origin_size(file_dir)
-    symbol = mask.get_mask(file_dir)
+    file_size = os.stat(file_name).st_size
 
-    if src_size == 0:
-        print("文件夹为空")
-        make_log()
-        exit(1)
+    # 发送文件大小和文件名，注意这里不发送文件名的标志位，在本地表示为目标主机的编号；
+    bite_format = '128sl' if get_system_bytes() else '128sq'
+    file_head = struct.pack(bite_format,
+                            os.path.basename(file_name)[1:].encode(),
+                            file_size)
 
-    # noinspection PyBroadException
-    try:
+    sock.send(file_head)
 
-        # 未处理；则需要完成压缩-传输的工作；
-        if symbol == 0:
-            # 第一步，请求获得最适合的主机ip地址；
-            make_log("INFO", "请求主机------------")
-            best_server = ask_computer.get_best_server(src_size)
+    print("开始传输文件:", file_name)
 
-            if best_server is None:
-                print("no available server can be found!")
-                make_log("ERROR", "未找到合适的主机")
-                make_log()
-                exit(1)
+    read_file = open(file_name, "rb")
 
-            make_log("INFO", "将向%s发送数据" % host_list[best_server])
-            print("将向 %s 传输数据----------" % host_list[best_server])
+    sended_size = 0
+    while True:
+        process_bar(float(sended_size) / file_size)
 
-            # 获得即将得到的压缩文件；
-            print("压缩文件------------------------------")
-            make_log("INFO", "压缩文件".ljust(20, '-'))
+        file_data = read_file.read(10240)
 
-            file_list = zip_file.create_zip(file_dir)
-            print("压缩完成------------------------------")
-            make_log("INFO", "压缩完成".ljust(20, '-'))
+        if not file_data:
+            break
 
-            # 压缩完毕则将标志位设置为目标主机的索引，有3种值；表示压缩完成，可以进行后续工作；
-            mask.put_mask(file_dir, best_server)
+        sock.send(file_data)
 
-            # 传输文件；
-            make_log("INFO", "准备发送文件---------")
-            sending_file(file_dir, best_server)
+        sended_size += len(file_data)
 
-            make_log("INFO", "文件传输完毕---------")
-            mask.put_mask(file_dir, 3)
+    read_file.close()
 
-            make_log()
-            exit()
+    # 传输完毕后删除原压缩文件；
+    os.remove(file_name)
+    print()
+    print("sending over:", file_name, '\n')
 
-        # 压缩完成，则直接进行传输即可；
-        if symbol in ["0", "1", "2"]:
-            print("压缩已完成，准备传输文件".ljust(20, '-'))
-            make_log("INFO", "压缩已完成，将向%s发送数据" % host_list[int(symbol)])
-
-            print("将向 %s 传输数据----------" % host_list[int(symbol)])
-            sending_file(file_dir, int(symbol))
-
-            mask.put_mask(file_dir, 3)
-            make_log("INFO", "数据传输完毕".ljust(20, '-'))
-            make_log()
-            exit()
-
-        # 所有工作完成，则提示并返回；
-        if symbol == "3":
-            print('all work are finished, '
-                  'you may want to try "python clear.py folder" '
-                  'to clear all the masks')
-            make_log("WARNING", "该数据已处理过！".ljust(20, '-'))
-            exit()
-
-    except Exception:
-        pass
+    make_log("INFO", "数据发送完毕： %s" % file_name)
+    sock.close()
 
 
+# 传输数据线程；
+def transport_thread():
 
+    while True:
+        time.sleep(5)
 
+        try:
+            # 获得压缩的文件列表；
+            file_list = get_file_list(zip_dir)
+            for file in file_list:
+                file_basename = os.path.basename(file)
+
+                # 以tmp开头表示还未压缩完毕；
+                if file_basename.startswith('tmp'):
+                    continue
+
+                host_index = int(file_basename[0])
+                sending_process(file, host_index)
+
+        except Exception as e:
+            print(e)

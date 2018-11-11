@@ -18,7 +18,7 @@ def get_mask(file_dir):
     file_dir = get_abspath_without_separator(file_dir)
 
     if not os.path.exists(os.path.join(mask_dir, file_dir)):
-        return 0
+        return None
 
     with open(os.path.join(mask_dir, file_dir), 'r') as mask_file:
         return mask_file.read().strip()

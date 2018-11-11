@@ -1,33 +1,23 @@
 """
 总文件，检测待发送文件，传输文件；
 """
-from transport import transport
-import os
-import time
-
-file_folder = "/home/zxy/Documents/test"
-
+from transport import transport_thread
+from compress import compress_thread
+from logs import make_log
+import threading
 
 if __name__ == '__main__':
-    # 设置标示位，当上一次有文件时，将不等待直接开始下一次循环；否则等待；
-    no_file = True
-    # 循环检测新文件；
-    while True:
-        if no_file:
-            time.sleep(5)
 
-        try:
-            dir_list = os.listdir(file_folder)
-            no_file = True
+    # 开启压缩数据线程，用于压缩数据；
+    compress_thread = threading.Thread(target=compress_thread, args=())
+    compress_thread.start()
+    print("数据压缩进程已启动，准备压缩数据")
+    make_log("INFO", "数据压缩进程已启动，准备压缩数据")
 
-            for dirs in dir_list:
-                no_file = False
-                dirs = os.path.abspath(dirs)
-                database_name = os.path.basename(dirs)
-                transport(dirs)
-
-        except Exception as e:
-            print(e)
-
+    # 开启传输数据线程，用于传输数据；
+    transport_thread = threading.Thread(target=transport_thread, args=())
+    transport_thread.start()
+    print("数据传输进程已启动，准备传输数据")
+    make_log("INFO", "数据传输进程已启动，准备压缩数据")
 
 

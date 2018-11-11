@@ -7,7 +7,7 @@ def process_bar(percent, width=50):
     use_num = int(percent*width)
     space_num = int(width - use_num)
 
-    percent = percent * 100
+    percent = float(percent) * 100
 
     print_str = '[%s%s]%d' % (use_num*'#', space_num*' ', percent)
 
