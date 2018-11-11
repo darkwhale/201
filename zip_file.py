@@ -4,7 +4,7 @@ import os
 import process_bar
 import platform
 
-batch_size = "200K"
+batch_size = "200M"
 zip_dir = "zips"
 
 # 创建zips文件夹；
@@ -19,7 +19,7 @@ def get_abspath_without_separator(path):
     if system == "Linux":
         path = path.replace('/', '')
     if system == "Windows":
-        path = path.replace('\\', '')
+        path = path[2:].replace('\\', '')
     return path
 
 
@@ -57,7 +57,7 @@ def get_origin_size(file_dir):
 
 # 获取文件月份，将添加到压缩文件名；
 def get_month(basename):
-    # todo 解析文件日期；
+    # 解析文件日期；
     return basename[:6]
 
 
