@@ -2,17 +2,17 @@ import socket
 import time
 import struct
 import os
+import threading
 
 from ask_computer import host_list
 from logs import make_log
 from ask_computer import port
-from process_bar import process_bar
-from zip_file import get_file_list
 from zip_file import zip_dir
 from zip_file import get_system_bytes
+from compress import thread_nums
 
 
-def sending_process(file_name, host_index):
+def sending_process(file_name, host_index, in_transport):
     # 建立连接；
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     # 绑定服务器IP地址；
@@ -36,7 +36,7 @@ def sending_process(file_name, host_index):
 
     sended_size = 0
     while True:
-        process_bar(float(sended_size) / file_size)
+        # process_bar(float(sended_size) / file_size)
 
         file_data = read_file.read(10240)
 
@@ -57,25 +57,65 @@ def sending_process(file_name, host_index):
     make_log("INFO", "数据发送完毕： %s" % file_name)
     sock.close()
 
+    in_transport.remove(file_name)
 
-# 传输数据线程；
-def transport_thread():
+
+# # 传输数据线程；
+# def transport_thread():
+#
+#     while True:
+#         time.sleep(5)
+#
+#         try:
+#             # 获得压缩的文件列表；
+#             file_list = get_file_list(zip_dir)
+#             for file in file_list:
+#                 file_basename = os.path.basename(file)
+#
+#                 # 以tmp开头表示还未压缩完毕；
+#                 if file_basename.startswith('tmp'):
+#                     continue
+#
+#                 host_index = int(file_basename[0])
+#                 sending_process(file, host_index)
+#
+#         except Exception as e:
+#             print(e)
+
+
+# 开始多线程传输；
+def transport(thread_num):
+    # 定义三个列表，分别表示正在压缩的文件夹，全部的文件夹，待压缩的文件夹；
+    in_transport = []
+    all_transport = []
 
     while True:
         time.sleep(5)
 
-        try:
-            # 获得压缩的文件列表；
-            file_list = get_file_list(zip_dir)
-            for file in file_list:
-                file_basename = os.path.basename(file)
+        all_transport.clear()
 
-                # 以tmp开头表示还未压缩完毕；
-                if file_basename.startswith('tmp'):
-                    continue
+        # 计算全部需要压缩的文件夹；
+        for folder in os.listdir(zip_dir):
+            if not folder.startswith("tmp"):
+                all_transport.append(os.path.join(zip_dir, folder))
 
-                host_index = int(file_basename[0])
-                sending_process(file, host_index)
+        # 去掉已经在处理的，则得到待压缩的文件夹；
+        new_transport = [file for file in all_transport if file not in in_transport]
 
-        except Exception as e:
-            print(e)
+        # 计算最大可新建的线程数；
+        free_thread_nums = thread_num - thread_nums("transport")
+
+        # 最后，线程数不应该比文件夹的数量大；
+        max_thread_num = free_thread_nums if free_thread_nums \
+                                             < len(new_transport) else len(new_transport)
+
+        for i in range(max_thread_num):
+            file_basename = os.path.basename(new_transport[i])
+            host_index = int(file_basename[0])
+            compress_thread = threading.Thread(target=sending_process,
+                                               args=(new_transport[i], host_index, in_transport),
+                                               name="transport")
+
+            in_transport.append(new_transport[i])
+
+            compress_thread.start()

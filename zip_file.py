@@ -5,7 +5,7 @@ import process_bar
 import platform
 import time
 
-batch_size = "1M"
+batch_size = "2M"
 zip_dir = "zips"
 
 # 创建zips文件夹；
@@ -84,8 +84,8 @@ def create_zip(file_dir, host_index):
 
     file_list = get_file_list(file_dir)
 
-    basename = os.path.basename(file_dir)
-    print(basename)
+    basename = os.path.basename(file_dir)[2:]
+    # print(basename)
 
     for index, file in enumerate(file_list):
         # print(file)
@@ -93,7 +93,7 @@ def create_zip(file_dir, host_index):
         process_bar.process_bar(float(index) / len(file_list))
         # 判断是否已定义part_zip对象；
         if index == 0:
-            old_zip_file_name = os.path.join(zip_dir, "tmp" + host_index + basename + str(time.time())+'.zip')
+            old_zip_file_name = os.path.join(zip_dir, "tmp" + str(host_index) + basename + str(time.time())+'.zip')
             part_zip = zipfile.ZipFile(old_zip_file_name,
                                        'w', zipfile.ZIP_DEFLATED)
 
@@ -113,7 +113,7 @@ def create_zip(file_dir, host_index):
 
             # 当不为最后一个文件时，创建新的压缩文件；
             if index + 1 != len(file_list):
-                old_zip_file_name = os.path.join(zip_dir, "tmp" + host_index + basename + str(time.time()) + '.zip')
+                old_zip_file_name = os.path.join(zip_dir, "tmp" + str(host_index) + basename + str(time.time()) + '.zip')
                 part_zip = zipfile.ZipFile(old_zip_file_name, 'w', zipfile.ZIP_DEFLATED)
 
         # 删除原文件；避免重复压缩；

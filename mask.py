@@ -34,3 +34,11 @@ def put_mask(file_dir, symbol):
         mask_file.write(str(symbol))
 
 
+def remove_mask(file_dir):
+    file_dir = os.path.abspath(file_dir)
+
+    file_dir = get_abspath_without_separator(file_dir)
+
+    os.remove(os.path.join(mask_dir, file_dir))
+
+
