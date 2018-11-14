@@ -1,17 +1,12 @@
 from zip_file import create_zip
-from ask_computer import get_best_server
-from zip_file import get_origin_size
 from logs import make_log
-from ask_computer import host_list
 import threading
 import time
 import os
-import shutil
 
-import mask
+from mask import is_in_mask
 
-# 存放数据的文件夹；
-file_folder = "/home/zxy/Documents/test"
+from config import file_folder
 
 
 # 定义压缩文件线程,压缩文件夹folder；
@@ -20,34 +15,14 @@ def compress_folder(folder, in_compress):
     try:
         folder = os.path.abspath(folder)
 
-        # 读取记录文件，获取目标主机；
-        host_index = mask.get_mask(folder)
-
-        # 为None表示未找到相关记录，需要重新询问主机；
-        if host_index is None:
-            # 取文件总大小；
-            src_size = get_origin_size(folder)
-            host_index = get_best_server(src_size)
-
-            if host_index is None:
-                print("未找到合适主机：", folder)
-                make_log("WARNING", "未找到合适主机：" + folder)
-                exit(1)
-
-            else:
-                mask.put_mask(folder, str(host_index))
-                print("将向" + host_list[int(host_index)] + "发送数据")
-                make_log("INFO", "将向" + (host_list[int(host_index)]) + "发送数据")
-
         # 压缩文件；
         make_log("INFO", "开始压缩数据：" + folder)
         print("开始压缩数据：", folder)
 
-        create_zip(folder, host_index)
+        create_zip(folder)
 
         # 删除该文件夹
-        shutil.rmtree(folder)
-        mask.remove_mask(folder)
+        # shutil.rmtree(folder)
 
         make_log("INFO", "数据压缩完毕：" + folder)
         print("\n压缩完毕：", folder)
@@ -68,6 +43,22 @@ def thread_nums(name='compress'):
     return len(thread_list)
 
 
+# 判断文件夹是否合法；
+def is_legal(folder):
+    symbol = True
+    for sub_folder in os.listdir(folder):
+        try:
+            time.strptime(sub_folder, "%Y%m%d")
+            if is_in_mask(os.path.join(folder, sub_folder)):
+                print("文件夹已经处理过：", os.path.join(folder, sub_folder))
+                symbol = False
+        except Exception as e:
+            print(e)
+            symbol = False
+
+    return symbol
+
+
 # 开始多线程压缩；
 def compress(thread_num=8):
     # 定义三个列表，分别表示正在压缩的文件夹，全部的文件夹，待压缩的文件夹；
@@ -81,7 +72,7 @@ def compress(thread_num=8):
 
         # 计算全部需要压缩的文件夹；
         for folder in os.listdir(file_folder):
-            if folder.startswith("ok"):
+            if folder.startswith("ok") and is_legal(os.path.join(file_folder, folder)):
                 all_compress.append(os.path.join(file_folder, folder))
 
         # 去掉已经在处理的，则得到待压缩的文件夹；

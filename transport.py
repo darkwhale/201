@@ -5,6 +5,7 @@ import os
 import threading
 
 from ask_computer import host_list
+from ask_computer import get_best_server
 from logs import make_log
 from ask_computer import port
 from zip_file import zip_dir
@@ -12,75 +13,66 @@ from zip_file import get_system_bytes
 from compress import thread_nums
 
 
-def sending_process(file_name, host_index, in_transport):
-    # 建立连接；
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # 绑定服务器IP地址；
-    host = host_list[host_index]
+# 发送单个文件；
+def sending_process(file_name, in_transport):
 
-    sock.connect((host, port))
+    try:
+        # 先询问查找最合适的主机；
+        src_size = os.path.getsize(file_name)
+        host_index = get_best_server(src_size)
 
-    file_size = os.stat(file_name).st_size
+        if host_index is None:
+            print("未找到合适主机：", file_name)
+            make_log("WARNING", "未找到合适主机：" + file_name)
+            raise NotImplementedError
 
-    # 发送文件大小和文件名，注意这里不发送文件名的标志位，在本地表示为目标主机的编号；
-    bite_format = '128sl' if get_system_bytes() else '128sq'
-    file_head = struct.pack(bite_format,
-                            os.path.basename(file_name)[1:].encode(),
-                            file_size)
+        # 建立连接；
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # 绑定服务器IP地址；
+        host = host_list[host_index]
 
-    sock.send(file_head)
+        sock.connect((host, port))
 
-    print("开始传输文件:", file_name)
+        file_size = os.stat(file_name).st_size
 
-    read_file = open(file_name, "rb")
+        # 发送文件大小和文件名，注意这里不发送文件名的标志位，在本地表示为目标主机的编号；
+        bite_format = '128sl' if get_system_bytes() else '128sq'
+        file_head = struct.pack(bite_format,
+                                os.path.basename(file_name).encode(),
+                                file_size)
 
-    sended_size = 0
-    while True:
-        # process_bar(float(sended_size) / file_size)
+        sock.send(file_head)
 
-        file_data = read_file.read(10240)
+        print("\n开始传输文件:", file_name)
 
-        if not file_data:
-            break
+        read_file = open(file_name, "rb")
 
-        sock.send(file_data)
+        sended_size = 0
+        while True:
+            # process_bar(float(sended_size) / file_size)
 
-        sended_size += len(file_data)
+            file_data = read_file.read(10240)
 
-    read_file.close()
+            if not file_data:
+                break
 
-    # 传输完毕后删除原压缩文件；
-    os.remove(file_name)
-    print()
-    print("sending over:", file_name, '\n')
+            sock.send(file_data)
 
-    make_log("INFO", "数据发送完毕： %s" % file_name)
-    sock.close()
+            sended_size += len(file_data)
 
-    in_transport.remove(file_name)
+        read_file.close()
 
+        # 传输完毕后删除原压缩文件；
+        os.remove(file_name)
+        print()
+        print("sending over:", file_name, '\n')
 
-# # 传输数据线程；
-# def transport_thread():
-#
-#     while True:
-#         time.sleep(5)
-#
-#         try:
-#             # 获得压缩的文件列表；
-#             file_list = get_file_list(zip_dir)
-#             for file in file_list:
-#                 file_basename = os.path.basename(file)
-#
-#                 # 以tmp开头表示还未压缩完毕；
-#                 if file_basename.startswith('tmp'):
-#                     continue
-#
-#                 host_index = int(file_basename[0])
-#                 sending_process(file, host_index)
-#
-#         except Exception as e:
-#             print(e)
+        make_log("INFO", "数据发送完毕： %s" % file_name)
+        sock.close()
+    except Exception as e:
+        print(e)
+    finally:
+        in_transport.remove(file_name)
 
 
 # 开始多线程传输；
@@ -110,10 +102,8 @@ def transport(thread_num):
                                              < len(new_transport) else len(new_transport)
 
         for i in range(max_thread_num):
-            file_basename = os.path.basename(new_transport[i])
-            host_index = int(file_basename[0])
             compress_thread = threading.Thread(target=sending_process,
-                                               args=(new_transport[i], host_index, in_transport),
+                                               args=(new_transport[i], in_transport),
                                                name="transport")
 
             in_transport.append(new_transport[i])

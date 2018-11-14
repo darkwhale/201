@@ -1,11 +1,15 @@
 # -*- coding: UTF-8 -*-
 import zipfile
 import os
-import process_bar
+from process_bar import process_bar
 import platform
 import time
 
-batch_size = "2M"
+from config import bake_folder
+from config import file_folder
+from mask import write_mask
+
+batch_size = "1M"
 zip_dir = "zips"
 
 # 创建zips文件夹；
@@ -77,7 +81,7 @@ def get_database(basename):
 
 
 # 分块创建压缩文件，返回压缩的小文件列表；
-def create_zip(file_dir, host_index):
+def create_zip(file_dir):
 
     # 用于返回所有的压缩好的文件名；
     name_list = []
@@ -90,10 +94,11 @@ def create_zip(file_dir, host_index):
     for index, file in enumerate(file_list):
         # print(file)
         # 显示压缩进度；
-        process_bar.process_bar(float(index) / len(file_list))
+        process_bar(float(index) / len(file_list))
         # 判断是否已定义part_zip对象；
         if index == 0:
-            old_zip_file_name = os.path.join(zip_dir, "tmp" + str(host_index) + basename + str(time.time())+'.zip')
+            old_zip_file_name = os.path.join(zip_dir, "tmp" + os.path.basename(os.path.dirname(file))[:6] +
+                                             basename + str(time.time())+'.zip')
             part_zip = zipfile.ZipFile(old_zip_file_name,
                                        'w', zipfile.ZIP_DEFLATED)
 
@@ -113,13 +118,24 @@ def create_zip(file_dir, host_index):
 
             # 当不为最后一个文件时，创建新的压缩文件；
             if index + 1 != len(file_list):
-                old_zip_file_name = os.path.join(zip_dir, "tmp" + str(host_index) + basename + str(time.time()) + '.zip')
+                old_zip_file_name = os.path.join(zip_dir, "tmp" + os.path.basename(os.path.dirname(file))[:6] +
+                                                 basename + str(time.time()) + '.zip')
                 part_zip = zipfile.ZipFile(old_zip_file_name, 'w', zipfile.ZIP_DEFLATED)
 
-        # 删除原文件；避免重复压缩；
-        os.remove(file)
+        # 转移原文件；避免重复压缩；
+        try:
+            os.renames(file, bake_folder + file[len(file_folder):])
 
-    process_bar.process_bar(1)
+            if not os.path.exists(os.path.dirname(file)):
+                write_mask(os.path.dirname(file))
+
+            if not os.path.exists(file_folder):
+                os.mkdir(file_folder)
+
+        except Exception as e:
+            print(e)
+
+    process_bar(1)
 
     return name_list
 

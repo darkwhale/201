@@ -1,44 +1,25 @@
-# -*- coding: UTF-8 -*-
 import os
-from zip_file import get_abspath_without_separator
 
-mask_dir = "mask"
+mask_file = os.path.join("mask","mask")
 
-if not os.path.exists(mask_dir):
-    os.mkdir(mask_dir)
+if not os.path.exists("mask"):
+    os.mkdir("mask")
 
-
-# 获取标志记录文件状态；
-# 返回0表示从未处理过；
-# 返回"0","1","2"表示压缩完成；直接进行选择对应的主机索引传输即可；
-# 2表示传输完成；即本机工作已实现；
-def get_mask(file_dir):
-    # 去掉文件名中的分隔符，因为分隔符不能存在于文件名中；
-    file_dir = os.path.abspath(file_dir)
-    file_dir = get_abspath_without_separator(file_dir)
-
-    if not os.path.exists(os.path.join(mask_dir, file_dir)):
-        return None
-
-    with open(os.path.join(mask_dir, file_dir), 'r') as mask_file:
-        return mask_file.read().strip()
+if not os.path.exists(mask_file):
+    tmp_creator = open(mask_file, "w")
+    tmp_creator.close()
 
 
-# 写入标志记录文件；
-def put_mask(file_dir, symbol):
-    file_dir = os.path.abspath(file_dir)
-
-    file_dir = get_abspath_without_separator(file_dir)
-
-    with open(os.path.join(mask_dir, file_dir), 'w') as mask_file:
-        mask_file.write(str(symbol))
+# 写记录文件；
+def write_mask(mask_str):
+    with open(mask_file, 'a') as writer:
+        writer.write(mask_str + '\n')
 
 
-def remove_mask(file_dir):
-    file_dir = os.path.abspath(file_dir)
+def is_in_mask(mask_str):
+    with open(mask_file, "r") as reader:
+        mask_list = reader.readlines()
 
-    file_dir = get_abspath_without_separator(file_dir)
+    mask_files = [file.strip() for file in mask_list]
 
-    os.remove(os.path.join(mask_dir, file_dir))
-
-
+    return True if mask_str in mask_files else False
